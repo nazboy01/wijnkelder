@@ -52,9 +52,22 @@ export default function WineCellarApp() {
     localStorage.setItem("wines", JSON.stringify(wines));
   }, [wines]);
 
+  // ✅ Fix: dubbele id voorkomen
   const handleAddWine = () => {
     if (!newWine.name) return;
-    setWines([...wines, { id: Date.now(), ...(newWine as Wine) }]);
+
+    const wineToAdd: Wine = {
+      id: Date.now(),
+      name: newWine.name || "",
+      grape: newWine.grape,
+      country: newWine.country,
+      vintage: newWine.vintage,
+      location: newWine.location,
+      quantity: newWine.quantity ?? 1,
+      price: newWine.price,
+    };
+
+    setWines([...wines, wineToAdd]);
     setNewWine({
       name: "",
       grape: "",
