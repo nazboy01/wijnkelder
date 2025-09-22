@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 // Eigen wijn die in jouw kelder zit
 interface Wine {
@@ -11,6 +12,7 @@ interface Wine {
   location?: string;
   quantity: number;
   price?: string | number;
+  photoUrl?: string; // ✅ nieuwe veld voor foto
 }
 
 // Wijn uit de externe SampleAPI
@@ -35,6 +37,7 @@ export default function WineCellarApp() {
     location: "",
     quantity: 1,
     price: "",
+    photoUrl: "",
   });
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"list" | "stats">("list");
@@ -65,6 +68,7 @@ export default function WineCellarApp() {
       location: newWine.location,
       quantity: newWine.quantity ?? 1,
       price: newWine.price,
+      photoUrl: newWine.photoUrl,
     };
 
     setWines([...wines, wineToAdd]);
@@ -76,6 +80,7 @@ export default function WineCellarApp() {
       location: "",
       quantity: 1,
       price: "",
+      photoUrl: "",
     });
   };
 
@@ -124,6 +129,25 @@ export default function WineCellarApp() {
     });
     setApiResults([]);
     setApiSearch("");
+  };
+
+  // 📸 Foto upload naar Supabase
+  const handleUploadPhoto = async (file: File) => {
+    const fileName = `${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage
+      .from("wine-photos")
+      .upload(fileName, file);
+
+    if (error) {
+      console.error("Upload error:", error);
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("wine-photos")
+      .getPublicUrl(fileName);
+
+    setNewWine({ ...newWine, photoUrl: data.publicUrl });
   };
 
   // Statistieken
@@ -258,6 +282,18 @@ export default function WineCellarApp() {
                 setNewWine({ ...newWine, price: e.target.value })
               }
             />
+
+            {/* 📸 Foto upload */}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="border p-2 rounded-lg col-span-2"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUploadPhoto(file);
+              }}
+            />
           </div>
 
           <button
@@ -277,6 +313,14 @@ export default function WineCellarApp() {
                     : "bg-white"
                 }`}
               >
+                {/* Foto */}
+                {wine.photoUrl && (
+                  <img
+                    src={wine.photoUrl}
+                    alt={wine.name}
+                    className="w-full h-40 object-cover rounded-lg mb-2"
+                  />
+                )}
                 <h2 className="text-lg font-semibold">
                   {wine.name} ({wine.vintage})
                 </h2>
