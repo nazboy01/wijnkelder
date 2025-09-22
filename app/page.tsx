@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 
+// Eigen wijn die in jouw kelder zit
 interface Wine {
   id: number;
   name: string;
@@ -10,6 +11,18 @@ interface Wine {
   location?: string;
   quantity: number;
   price?: string | number;
+}
+
+// Wijn uit de externe SampleAPI
+interface ApiWine {
+  id: number;
+  wine: string;
+  winery: string;
+  location: string;
+  rating?: {
+    average: string;
+    reviews: string;
+  };
 }
 
 export default function WineCellarApp() {
@@ -26,10 +39,11 @@ export default function WineCellarApp() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"list" | "stats">("list");
 
+  // Resultaten van externe bibliotheek
   const [apiSearch, setApiSearch] = useState("");
-  const [apiResults, setApiResults] = useState<any[]>([]);
+  const [apiResults, setApiResults] = useState<ApiWine[]>([]);
 
-  // localStorage
+  // Data laden en opslaan in localStorage
   useEffect(() => {
     const stored = localStorage.getItem("wines");
     if (stored) setWines(JSON.parse(stored));
@@ -66,7 +80,7 @@ export default function WineCellarApp() {
     w.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Zoek in SampleAPIs
+  // 🔍 Zoeken in SampleAPIs
   useEffect(() => {
     if (apiSearch.length < 3) {
       setApiResults([]);
@@ -74,11 +88,10 @@ export default function WineCellarApp() {
     }
     const fetchData = async () => {
       try {
-        // Je kunt hier eventueel kiezen welke "categorie" (reds / whites) om te doorzoeken
-        const res = await fetch(`https://api.sampleapis.com/wines/reds`);
-        const data = await res.json();
-        // Filter lokaal op naam / zoekterm
-        const filtered = data.filter((item: any) =>
+        const res = await fetch("https://api.sampleapis.com/wines/reds");
+        const data: ApiWine[] = await res.json();
+
+        const filtered = data.filter((item: ApiWine) =>
           item.wine.toLowerCase().includes(apiSearch.toLowerCase())
         );
         setApiResults(filtered);
@@ -89,7 +102,7 @@ export default function WineCellarApp() {
     fetchData();
   }, [apiSearch]);
 
-  const handleSelectApiWine = (wine: any) => {
+  const handleSelectApiWine = (wine: ApiWine) => {
     setNewWine({
       ...newWine,
       name: wine.wine || "",
@@ -103,7 +116,8 @@ export default function WineCellarApp() {
   // Statistieken
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
   const totalValue = wines.reduce(
-    (sum, w) => sum + ((parseFloat(w.price as string) || 0) * w.quantity),
+    (sum, w) =>
+      sum + ((parseFloat(w.price as string) || 0) * w.quantity),
     0
   );
   const bottlesPerCountry = wines.reduce((acc: Record<string, number>, w) => {
@@ -154,7 +168,7 @@ export default function WineCellarApp() {
             />
             {apiResults.length > 0 && (
               <ul className="border rounded-lg mt-1 bg-white shadow">
-                {apiResults.map((wine: any) => (
+                {apiResults.map((wine: ApiWine) => (
                   <li
                     key={wine.id}
                     className="p-2 hover:bg-gray-100 cursor-pointer"
@@ -167,6 +181,7 @@ export default function WineCellarApp() {
             )}
           </div>
 
+          {/* Formulier nieuwe wijn */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <input
               className="border p-2 rounded-lg"
