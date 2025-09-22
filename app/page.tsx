@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+// Wijn in eigen kelder (Supabase)
 interface Wine {
   id: number;
   name: string;
@@ -12,6 +13,18 @@ interface Wine {
   quantity: number;
   price?: number;
   photoUrl?: string;
+}
+
+// Wijn uit externe SampleAPI
+interface ApiWine {
+  id: number;
+  wine: string;
+  winery: string;
+  location: string;
+  rating?: {
+    average: string;
+    reviews: string;
+  };
 }
 
 export default function WineCellarApp() {
@@ -26,9 +39,14 @@ export default function WineCellarApp() {
     price: undefined,
     photoUrl: "",
   });
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Wijnen ophalen uit Supabase bij laden
+  // 🔎 externe API zoekfunctie
+  const [apiSearch, setApiSearch] = useState("");
+  const [apiResults, setApiResults] = useState<ApiWine[]>([]);
+
+  // ✅ Wijnen ophalen uit Supabase
   useEffect(() => {
     const fetchWines = async () => {
       setLoading(true);
@@ -43,7 +61,7 @@ export default function WineCellarApp() {
     fetchWines();
   }, []);
 
-  // 📸 Foto uploaden naar Supabase bucket
+  // 📸 Foto upload naar Supabase bucket
   const handleUploadPhoto = async (file: File) => {
     const fileName = `${Date.now()}-${file.name}`;
     const { error } = await supabase.storage
@@ -62,22 +80,25 @@ export default function WineCellarApp() {
     setNewWine({ ...newWine, photoUrl: data.publicUrl });
   };
 
-  // ➕ Nieuwe wijn toevoegen aan Supabase
+  // ➕ Nieuwe wijn toevoegen
   const handleAddWine = async () => {
     if (!newWine.name) return;
 
-    const { data, error } = await supabase.from("wines").insert([
-      {
-        name: newWine.name,
-        grape: newWine.grape,
-        country: newWine.country,
-        vintage: newWine.vintage,
-        location: newWine.location,
-        quantity: newWine.quantity,
-        price: newWine.price,
-        photoUrl: newWine.photoUrl,
-      },
-    ]).select("*");
+    const { data, error } = await supabase
+      .from("wines")
+      .insert([
+        {
+          name: newWine.name,
+          grape: newWine.grape,
+          country: newWine.country,
+          vintage: newWine.vintage,
+          location: newWine.location,
+          quantity: newWine.quantity,
+          price: newWine.price,
+          photoUrl: newWine.photoUrl,
+        },
+      ])
+      .select("*");
 
     if (error) {
       console.error("Error inserting wine:", error.message);
@@ -96,7 +117,7 @@ export default function WineCellarApp() {
     }
   };
 
-  // 🥂 Fles drinken = aantal verminderen
+  // 🥂 Fles drinken
   const handleDrinkWine = async (id: number) => {
     const wine = wines.find((w) => w.id === id);
     if (!wine || wine.quantity <= 0) return;
@@ -118,9 +139,78 @@ export default function WineCellarApp() {
     }
   };
 
+  // 🔎 Externe API zoeken
+  useEffect(() => {
+    if (apiSearch.length < 3) {
+      setApiResults([]);
+      return;
+    }
+
+    const fetchData = async () => {
+      try {
+        const res = await fetch("https://api.sampleapis.com/wines/reds");
+        const data: ApiWine[] = await res.json();
+
+        const filtered = data.filter((item: ApiWine) =>
+          item.wine.toLowerCase().includes(apiSearch.toLowerCase())
+        );
+        setApiResults(filtered);
+      } catch (err) {
+        console.error("Fout bij SampleAPI:", err);
+      }
+    };
+
+    fetchData();
+  }, [apiSearch]);
+
+  // Filter eigen kelder
+  const filteredWines = wines.filter((w) =>
+    w.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="p-6 max-w-3xl mx-auto font-sans">
       <h1 className="text-3xl font-bold mb-4">🍷 Mijn Wijnkelder</h1>
+
+      {/* Zoeken in eigen kelder */}
+      <input
+        placeholder="Zoek in mijn kelder..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mb-4 w-full border p-2 rounded-lg"
+      />
+
+      {/* 🔎 Externe wijnbibliotheek */}
+      <div className="mb-4">
+        <input
+          placeholder="Zoek in externe wijnbibliotheek..."
+          value={apiSearch}
+          onChange={(e) => setApiSearch(e.target.value)}
+          className="w-full border p-2 rounded-lg"
+        />
+        {apiResults.length > 0 && (
+          <ul className="border rounded-lg mt-1 bg-white shadow">
+            {apiResults.map((wine: ApiWine) => (
+              <li
+                key={wine.id}
+                className="p-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => {
+                  setNewWine({
+                    ...newWine,
+                    name: wine.wine,
+                    grape: wine.winery,
+                    country: wine.location,
+                  });
+                  setApiResults([]);
+                  setApiSearch("");
+                }}
+              >
+                {wine.wine} ({wine.location})
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* Formulier nieuwe wijn */}
       <div className="grid grid-cols-2 gap-2 mb-4">
@@ -199,7 +289,7 @@ export default function WineCellarApp() {
         <p className="mt-4">⌛ Laden...</p>
       ) : (
         <div className="mt-6 grid gap-3">
-          {wines.map((wine) => (
+          {filteredWines.map((wine) => (
             <div
               key={wine.id}
               className={`p-4 rounded-lg shadow ${
